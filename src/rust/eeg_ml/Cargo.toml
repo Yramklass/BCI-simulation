@@ -1,0 +1,11 @@
+[package]
+name = "eeg_ml"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ndarray = "0.15"
+linfa = "0.6"  # Machine Learning framework

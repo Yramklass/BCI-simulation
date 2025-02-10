@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Yash\Desktop\Projects\BCI-simulation\build\CMakeFiles\7730385459b4c37d37ac462625b851c7\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{58C7FE85-09F4-3CD5-9641-A89B3E454DB3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

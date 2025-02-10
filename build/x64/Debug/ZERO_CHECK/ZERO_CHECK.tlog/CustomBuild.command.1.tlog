@@ -1,0 +1,10 @@
+^C:\USERS\YASH\DESKTOP\PROJECTS\BCI-SIMULATION\BUILD\CMAKEFILES\7730385459B4C37D37AC462625B851C7\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Yash/Desktop/Projects/BCI-simulation -BC:/Users/Yash/Desktop/Projects/BCI-simulation/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Yash/Desktop/Projects/BCI-simulation/build/BCI_Simulation.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
