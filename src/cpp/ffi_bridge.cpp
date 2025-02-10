@@ -5,7 +5,7 @@ typedef int (*ClassifySignalFn)(float);
 
 int call_rust_model(float value) {
     // Convert narrow string to wide string
-    const wchar_t* libPath = L"../rust/eeg_ml/target/release/eeg_ml.dll";
+    const wchar_t* libPath = L"C:/Users/Yash/Desktop/Projects/BCI-simulation/src/rust/eeg_ml/target/release/eeg_ml.dll";
 
     HMODULE handle = LoadLibraryW(libPath);  // Use LoadLibraryW for wide string
     if (!handle) {
