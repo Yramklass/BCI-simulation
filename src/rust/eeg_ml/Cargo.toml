@@ -9,3 +9,6 @@ crate-type = ["cdylib"]
 [dependencies]
 ndarray = "0.15"
 linfa = "0.6"  # Machine Learning framework
+ort = "1.15"  # ONNX Runtime for Rust
+ndarray = "0.15"  # Handling NumPy-like arrays
+libc = "0.2"  # Required for FFI
