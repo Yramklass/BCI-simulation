@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization, GlobalAveragePooling1D
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
@@ -33,37 +33,43 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # Build Improved CNN Model
 model = Sequential([
-    Conv1D(filters=32, kernel_size=5, activation='relu', input_shape=(X.shape[1], 1)),
+    Conv1D(filters=32, kernel_size=3, activation='relu', padding='same', input_shape=(X.shape[1], 1)),
     BatchNormalization(),
     MaxPooling1D(pool_size=2),
 
-    Conv1D(filters=64, kernel_size=5, activation='relu'),
+    Conv1D(filters=64, kernel_size=3, activation='relu', padding='same'),
     BatchNormalization(),
     MaxPooling1D(pool_size=2),
 
-    Conv1D(filters=128, kernel_size=3, activation='relu'),
+    Conv1D(filters=128, kernel_size=3, activation='relu', padding='same'),
     BatchNormalization(),
     MaxPooling1D(pool_size=2),
 
-    Flatten(),
+    Conv1D(filters=256, kernel_size=3, activation='relu', padding='same'),  # Deeper network
+    BatchNormalization(),
+    MaxPooling1D(pool_size=2),
+
+    GlobalAveragePooling1D(),  # Alternative to Flatten() to reduce overfitting
     Dense(128, activation='relu'),
-    Dropout(0.4),  # Increase dropout to prevent overfitting
+    Dropout(0.4),
     Dense(64, activation='relu'),
     Dropout(0.3),
     Dense(1, activation='sigmoid')  # Binary classification
 ])
 
 # Compile model with lower learning rate
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0005),
+model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0003),  # Reduce learning rate
               loss='binary_crossentropy',
               metrics=['accuracy'])
 
-# Train model
-history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test))
+# Train model with early stopping
+early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+
+history = model.fit(X_train, y_train, epochs=100, batch_size=64, validation_data=(X_test, y_test), callbacks=[early_stopping])
 
 # Evaluate model
 test_loss, test_acc = model.evaluate(X_test, y_test)
 print(f"Test Accuracy: {test_acc:.2f}")
 
 # Save the trained model
-model.save("eeg_cnn_model.h5")
+model.save("eeg_cnn_model_v2.h5")
