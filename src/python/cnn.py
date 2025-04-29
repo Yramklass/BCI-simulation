@@ -3,31 +3,44 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers, callbacks
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Load and preprocess data
-df = pd.read_csv("BCICIV_2a_all_patients.csv")  
+df = pd.read_csv("BCICIV_2a_all_patients.csv")
 
 # Filter labels: only keep 'left' and 'right'
 df = df[df['label'].isin(['left', 'right'])]
 df['label'] = df['label'].map({'left': 0, 'right': 1})
-print("Original class balance (after filtering):\n", df['label'].value_counts())
 
-# Extract EEG channels (everything except metadata columns)
-eeg_channels = [col for col in df.columns if col.startswith("EEG")]
-print(f"Present EEG channels: {eeg_channels}")
+# Reorder channels by importance (motor cortex first)
+channel_order = ['EEG-C3', 'EEG-Cz', 'EEG-C4', 'EEG-Fz', 'EEG-Pz'] + \
+                [col for col in df.columns if col.startswith("EEG") and col not in ['EEG-C3', 'EEG-Cz', 'EEG-C4', 'EEG-Fz', 'EEG-Pz']]
+eeg_channels = [col for col in channel_order if col in df.columns]
+
+# Patient-specific normalization
+for patient in df['patient'].unique():
+    patient_mask = df['patient'] == patient
+    for channel in eeg_channels:
+        df.loc[patient_mask, channel] = (df.loc[patient_mask, channel] - 
+                                        df.loc[patient_mask, channel].mean()) / \
+                                       (df.loc[patient_mask, channel].std() + 1e-8)
 
 # Parameters
-window_size = 64
-step_size = 32  # Overlap
+window_size = 128  # Increased window size
+step_size = 32     # 75% overlap
 X_windows, y_windows = [], []
 
-# Group by epoch and window each one
+# Add delta features and create windows
+def add_delta_features(signals):
+    deltas = np.diff(signals, axis=0)
+    deltas = np.vstack([deltas[0:1], deltas])  # Pad first time step
+    return np.concatenate([signals, deltas], axis=1)
+
 for epoch_id, epoch_df in df.groupby("epoch"):
     signals = epoch_df[eeg_channels].values
+    signals = add_delta_features(signals)  # Now has original + delta features
+    
     labels = epoch_df["label"].values
     for start in range(0, len(signals) - window_size + 1, step_size):
         end = start + window_size
@@ -38,20 +51,34 @@ for epoch_id, epoch_df in df.groupby("epoch"):
 
 X = np.array(X_windows)
 y = np.array(y_windows)
-print(f"\nNumber of windows created: {len(X)}")
-print(f"Shape of each window: {X[0].shape}")
-print(f"Class balance after windowing:\n{dict(pd.Series(y).value_counts())}")
 
-# Train/test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
+# Train/test split with patient awareness
+patient_ids = df['patient'].unique()
+test_patient = patient_ids[-1]  # Hold out last patient for testing
 
-# Normalize
-mean = X_train.mean()
-std = X_train.std()
-X_train = (X_train - mean) / std
-X_test = (X_test - mean) / std
+test_mask = df['patient'] == test_patient
+train_df = df[~test_mask]
+test_df = df[test_mask]
 
-# CNN-LSTM model with Cosine LR decay
+# Recreate windows for train/test split
+def create_windows(dataframe):
+    windows, labels = [], []
+    for epoch_id, epoch_df in dataframe.groupby("epoch"):
+        signals = epoch_df[eeg_channels].values
+        signals = add_delta_features(signals)
+        epoch_labels = epoch_df["label"].values
+        for start in range(0, len(signals) - window_size + 1, step_size):
+            end = start + window_size
+            window = signals[start:end]
+            label = np.bincount(epoch_labels[start:end]).argmax()
+            windows.append(window)
+            labels.append(label)
+    return np.array(windows), np.array(labels)
+
+X_train, y_train = create_windows(train_df)
+X_test, y_test = create_windows(test_df)
+
+# Simplified model architecture
 def build_model(input_shape):
     model = models.Sequential([
         layers.Input(shape=input_shape),
@@ -59,11 +86,13 @@ def build_model(input_shape):
         layers.BatchNormalization(),
         layers.MaxPooling1D(2),
         layers.Dropout(0.3),
+        
         layers.Conv1D(128, 3, activation='relu', padding='same'),
         layers.BatchNormalization(),
         layers.MaxPooling1D(2),
         layers.Dropout(0.3),
-        layers.LSTM(64, return_sequences=False),
+        
+        layers.Bidirectional(layers.LSTM(64)),
         layers.Dense(32, activation='relu'),
         layers.Dropout(0.2),
         layers.Dense(1, activation='sigmoid')
@@ -72,42 +101,47 @@ def build_model(input_shape):
 
 model = build_model(X_train.shape[1:])
 
-# Cosine decay LR
-initial_lr = 2e-4
-cosine_lr = tf.keras.optimizers.schedules.CosineDecay(
-    initial_learning_rate=initial_lr,
-    decay_steps=10 * len(X_train) // 32,
+# Simplified learning rate schedule
+initial_learning_rate = 1e-4
+lr_schedule = optimizers.schedules.CosineDecay(
+    initial_learning_rate,
+    decay_steps=200 * len(X_train) // 32
 )
-
-optimizer = optimizers.Adam(learning_rate=cosine_lr)
-model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=["accuracy"])
 
 # Callbacks
 ckpt_path = "best_model.keras"
 callbacks_list = [
     callbacks.ModelCheckpoint(ckpt_path, monitor="val_accuracy", save_best_only=True),
-    callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=3, verbose=1),
-    callbacks.EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True)
+    callbacks.EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
 ]
 
+# Class weights
+class_weights = {0: len(y_train)/(2*np.sum(y_train==0)), 
+                 1: len(y_train)/(2*np.sum(y_train==1))}
+
+# Compile model
+model.compile(
+    optimizer=optimizers.Adam(learning_rate=lr_schedule),
+    loss="binary_crossentropy",
+    metrics=["accuracy", tf.keras.metrics.AUC(name='auc')]
+)
+
 # Training
-model.fit(
+history = model.fit(
     X_train, y_train,
-    validation_split=0.2,
-    epochs=200,
+    validation_data=(X_test, y_test),
     batch_size=32,
-    callbacks=callbacks_list
+    epochs=200,
+    class_weight=class_weights,
+    callbacks=callbacks_list,
+    verbose=1
 )
 
 # Evaluation
 y_pred = (model.predict(X_test) > 0.5).astype(int)
-print("\nEvaluation:")
+print("\nEvaluation Report:")
 print(classification_report(y_test, y_pred, digits=4))
 
 # Save model
-model.save("temp_model.keras")  # Recommended format in Keras 3
-print("Model saved as temp_model.keras")
-
-# ONNX conversion
-print("⚠️ To convert to ONNX, run:\n")
-print("   python -m tf2onnx.convert --keras temp_model.keras --output eeg_cnn_model.onnx")
+model.save("eeg_movement_classifier.keras")
+print("Model saved as eeg_movement_classifier.keras")
