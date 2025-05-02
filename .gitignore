@@ -1,2 +1,4 @@
 *.csv
 myenv/
+sklearn-env/
+src/rust/eeg_ml/target/

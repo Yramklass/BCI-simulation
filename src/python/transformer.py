@@ -38,42 +38,41 @@ test_patient = df['patient'].unique()[-1]
 X_train, y_train = create_windows(df[df['patient'] != test_patient])
 X_test, y_test = create_windows(df[df['patient'] == test_patient])
 
-# Attention-enhanced model
-def build_attention_model(input_shape):
+
+# Build model with MHSA
+def build_transformer_model(input_shape):
     inputs = layers.Input(shape=input_shape)
     
-    # Temporal attention
+    # Temporal convolutional block
     x = layers.Conv1D(64, 5, padding='same', activation='swish')(inputs)
     x = layers.BatchNormalization()(x)
     x = layers.MaxPooling1D(2)(x)
     
-    # Channel attention
+    # Channel attention (SE-style)
     channel_att = layers.GlobalAvgPool1D()(x)
-    channel_att = layers.Dense(64//4, activation='relu')(channel_att)
+    channel_att = layers.Dense(64 // 4, activation='relu')(channel_att)
     channel_att = layers.Dense(64, activation='sigmoid')(channel_att)
     channel_att = layers.Reshape((1, 64))(channel_att)
     x = layers.Multiply()([x, channel_att])
     
-    # Temporal processing
+    # Deeper conv block
     x = layers.Conv1D(128, 3, padding='same', activation='swish')(x)
     x = layers.BatchNormalization()(x)
     x = layers.MaxPooling1D(2)(x)
     
-    # BiLSTM with self-attention
-    lstm_out = layers.Bidirectional(layers.LSTM(64, return_sequences=True))(x)
-    query = layers.Dense(128)(lstm_out)
-    key = layers.Dense(128)(lstm_out)
-    value = layers.Dense(128)(lstm_out)
-    attention = layers.Attention()([query, key, value])
-    x = layers.GlobalAvgPool1D()(attention)
-    
-    # Classification
+    # MHSA block
+    mha_out = layers.MultiHeadAttention(num_heads=4, key_dim=32)(x, x)
+    x = layers.Add()([x, mha_out])
+    x = layers.LayerNormalization()(x)
+    x = layers.GlobalAvgPool1D()(x)
+
+    # Classification head
     x = layers.Dense(32, activation='swish')(x)
     outputs = layers.Dense(1, activation='sigmoid')(x)
     
     return models.Model(inputs, outputs)
 
-model = build_attention_model(X_train.shape[1:])
+model = build_transformer_model(X_train.shape[1:])
 
 # Improved learning schedule
 initial_lr = 1e-4
@@ -97,7 +96,7 @@ model.compile(
 
 # Callbacks
 callbacks_list = [
-    callbacks.ModelCheckpoint("best_attention_model.keras", monitor="val_auc", mode='max', save_best_only=True),
+    callbacks.ModelCheckpoint("best_transformer_model.keras", monitor="val_auc", mode='max', save_best_only=True),
     callbacks.EarlyStopping(monitor="val_auc", patience=20, mode='max', restore_best_weights=True)
 ]
 

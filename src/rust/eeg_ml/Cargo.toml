@@ -1,5 +1,5 @@
 [package]
-name = "eeg_ml"
+name = "eeg_classifier"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-ndarray = "0.15"
+ort = "1.16.3"  # ONNX Runtime binding
+ndarray = "0.15" # For array handling
+lazy_static = "1.4" # For global session
 linfa = "0.6"  # Machine Learning framework
-ort = "1.15"  # ONNX Runtime for Rust
-ndarray = "0.15"  # Handling NumPy-like arrays
+
 libc = "0.2"  # Required for FFI
