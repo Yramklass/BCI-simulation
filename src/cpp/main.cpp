@@ -10,7 +10,7 @@ extern "C" {
     void free_string(char* ptr);
 }
 
-// Constants matching your model
+// Constants matching model
 const int WINDOW_SIZE = 128;
 const int NUM_FEATURES = 44; // 22 channels × 2 (raw + delta)
 
@@ -36,18 +36,18 @@ std::vector<std::vector<float>> loadCSV(const std::string& filename) {
 }
 
 int main() {
-    // 1. Load your EEG data from CSV
+    // Load EEG data from CSV
     std::string csv_file = "eeg_data.csv";
     auto eeg_data = loadCSV(csv_file);
 
-    // 2. Verify data dimensions
+    // Verify data dimensions
     if (eeg_data.size() < WINDOW_SIZE || eeg_data[0].size() != NUM_FEATURES) {
         std::cerr << "Error: Data must have at least " << WINDOW_SIZE 
                   << " rows and exactly " << NUM_FEATURES << " columns\n";
         return 1;
     }
 
-    // 3. Prepare input buffer
+    // Prepare input buffer
     std::vector<float> model_input;
     model_input.reserve(WINDOW_SIZE * NUM_FEATURES);
 
@@ -57,7 +57,7 @@ int main() {
         }
     }
 
-    // 4. Call Rust classifier
+    // Call Rust classifier
     char* prediction_ptr = classify_eeg(model_input.data());
     
     if (prediction_ptr != nullptr) {

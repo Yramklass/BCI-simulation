@@ -1,18 +1,18 @@
 import numpy as np
 import pandas as pd
 
-# --- Configuration ---
+
 NUM_TIMESTEPS = 128
 NUM_CHANNELS = 22  # Original EEG channels
 NUM_FEATURES = NUM_CHANNELS * 2  # Base channels + delta features
 OUTPUT_FILE = "eeg_data.csv" 
 
-# --- Choose which movement pattern to simulate ---
-# Set to False for simulated "left" movement (stronger C4/right hemisphere)
-# Set to True for simulated "right" movement (stronger C3/left hemisphere)
-SIMULATE_RIGHT_MOVEMENT = True # <--- CHANGE THIS TO True FOR RIGHT MOVEMENT DATA
+# Choose which movement pattern to simulate
+# False for simulated "left" movement (stronger C4/right hemisphere)
+# True for simulated "right" movement (stronger C3/left hemisphere)
+SIMULATE_RIGHT_MOVEMENT = True 
 
-# --- Data Generation ---
+# Data Generation\
 np.random.seed(42) # Keep seed for reproducibility
 
 # Base signal and movement-specific patterns
@@ -39,7 +39,7 @@ data = []
 for t in range(NUM_TIMESTEPS):
     row = [] # Holds NUM_FEATURES (44) values for this timestep
 
-    # --- Generate Original Channels (0-21) ---
+    # Generate Original Channels (0-21)
     raw_channels_this_step = []
     for ch in range(NUM_CHANNELS):
         noise = np.random.normal(0, 0.15) # Adjusted noise slightly
@@ -56,7 +56,7 @@ for t in range(NUM_TIMESTEPS):
         raw_channels_this_step.append(val)
     row.extend(raw_channels_this_step) # Add the 22 raw channels
 
-    # --- Calculate Delta Features (22-43) ---
+    # Calculate Delta Features (22-43)
     delta_channels_this_step = []
     if t > 0:
         # Get the raw channels from the *previous* timestep (first 22 elements of data[t-1])
@@ -72,7 +72,7 @@ for t in range(NUM_TIMESTEPS):
     # Append the full row (44 features) for this timestep
     data.append(row)
 
-# --- Post-Processing: Normalization ---
+# Normalization
 
 # Convert the list of lists to a NumPy array (float32 is standard for ML)
 data_np = np.array(data, dtype=np.float32)
@@ -88,10 +88,6 @@ epsilon = 1e-8
 normalized_data = (data_np - mean_per_feature) / (std_per_feature + epsilon)
 print(f"Normalized data shape: {normalized_data.shape}")
 
-# Optional: Verify normalization (mean should be ~0, std should be ~1 for each column)
-# print("Mean after normalization (per feature):", np.mean(normalized_data, axis=0))
-# print("Std after normalization (per feature):", np.std(normalized_data, axis=0))
 
-# --- Save the NORMALIZED data to CSV ---
 pd.DataFrame(normalized_data).to_csv(OUTPUT_FILE, index=False, header=False)
 print(f"Generated and NORMALIZED test file: {OUTPUT_FILE}")

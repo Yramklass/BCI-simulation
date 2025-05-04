@@ -7,27 +7,7 @@ import pickle
 import datetime
 
 def preprocess_eeg_data(filename, window_size=128, overlap=0.5, sampling_rate=250):
-    """
-    Preprocess EEG data with overlapping windows and feature extraction
     
-    Parameters:
-    -----------
-    filename : str
-        Path to the CSV file containing EEG data
-    window_size : int
-        Size of the sliding window in samples
-    overlap : float
-        Overlap ratio between consecutive windows (0-1)
-    sampling_rate : int
-        Sampling rate of the EEG data in Hz
-    
-    Returns:
-    --------
-    X : numpy.ndarray
-        Preprocessed features
-    y : numpy.ndarray
-        Labels
-    """
     print(f"Loading data from {filename}...")
     # Load dataset
     df = pd.read_csv(filename)
@@ -119,21 +99,7 @@ def preprocess_eeg_data(filename, window_size=128, overlap=0.5, sampling_rate=25
     return X_features, y_binary, np.array(patient_ids), window_df, scaler_info
 
 def extract_features(X, sampling_rate):
-    """
-    Extract time and frequency domain features from EEG windows
     
-    Parameters:
-    -----------
-    X : numpy.ndarray
-        EEG data of shape (num_windows, window_size, num_channels)
-    sampling_rate : int
-        Sampling rate of the EEG data in Hz
-    
-    Returns:
-    --------
-    features : numpy.ndarray
-        Extracted features of shape (num_windows, num_features)
-    """
     num_windows, window_size, num_channels = X.shape
     features = []
     
@@ -171,24 +137,7 @@ def extract_features(X, sampling_rate):
     return np.array(features)
 
 def save_preprocessed_data(X, y, patient_ids, window_df, scaler_info, output_dir):
-    """
-    Save preprocessed data to files
     
-    Parameters:
-    -----------
-    X : numpy.ndarray
-        Features
-    y : numpy.ndarray
-        Labels
-    patient_ids : numpy.ndarray
-        Patient IDs
-    window_df : pandas.DataFrame
-        Window information and features
-    scaler_info : dict
-        Scaler information
-    output_dir : str
-        Directory to save output files
-    """
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

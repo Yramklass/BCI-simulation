@@ -39,7 +39,7 @@ def add_delta_features(signals):
 
 for epoch_id, epoch_df in df.groupby("epoch"):
     signals = epoch_df[eeg_channels].values
-    signals = add_delta_features(signals)  # Now has original + delta features
+    signals = add_delta_features(signals)  
     
     labels = epoch_df["label"].values
     for start in range(0, len(signals) - window_size + 1, step_size):
