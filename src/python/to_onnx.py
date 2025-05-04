@@ -1,20 +1,12 @@
-# --- Imports ---
 import tensorflow as tf
 import tf2onnx
 import numpy as np
-import os # Optional: for checking file existence
+import os
 
 print(f"TensorFlow version: {tf.__version__}")
 print(f"tf2onnx version: {tf2onnx.__version__}")
 
-# --- Define Custom Objects (Ensure these EXACTLY match training) ---
 
-# Option 1: Import (Recommended if training code is in another file)
-# from your_training_script_file import focal_loss
-
-# Option 2: Redefine EXACTLY as used in training
-# Make sure this definition is identical to the one associated
-# with the saved 'best_attention_model.keras' file.
 @tf.keras.utils.register_keras_serializable()
 def focal_loss(y_true, y_pred, alpha=0.25, gamma=2.0):
     """
@@ -22,7 +14,7 @@ def focal_loss(y_true, y_pred, alpha=0.25, gamma=2.0):
     the parameters used during model compilation if not overridden.
     The implementation should be numerically stable.
     """
-    y_true = tf.cast(y_true, dtype=y_pred.dtype) # Ensure types match
+    y_true = tf.cast(y_true, dtype=y_pred.dtype)
     epsilon = tf.keras.backend.epsilon()
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
 
@@ -36,12 +28,7 @@ def focal_loss(y_true, y_pred, alpha=0.25, gamma=2.0):
 
     # Calculate loss for false classes (1-pt)
     pt_false = 1.0 - y_pred
-    loss_false = (1.0 - alpha) * tf.math.pow(1.0 - pt_false, gamma) * cross_entropy_false # Note: Standard Focal Loss often uses alpha for positive class and (1-alpha) for negative
-
-    # Combine and reduce (using the definition from your conversion script attempt for consistency)
-    # The exact reduction method might differ slightly based on TF versions or specific implementations
-    # Original training code used: tf.where(tf.equal(y_true, 1), y_pred, 1 - y_pred) approach
-    # Let's use a more common TF implementation:
+    loss_false = (1.0 - alpha) * tf.math.pow(1.0 - pt_false, gamma) * cross_entropy_false 
     ce = tf.keras.losses.binary_crossentropy(y_true, y_pred, from_logits=False)
     p_t = (y_true * y_pred) + ((1-y_true) * (1-y_pred))
     alpha_factor = y_true * alpha + (1-y_true) * (1-alpha)
@@ -49,19 +36,14 @@ def focal_loss(y_true, y_pred, alpha=0.25, gamma=2.0):
     loss = tf.reduce_mean(alpha_factor * modulating_factor * ce) # Mean over batch
     return loss
 
-
-# --- Configuration ---
 keras_model_path = "best_attention_model.keras"
 onnx_model_path = "best_attention_model.onnx"
 opset_version = 13
 
-# --- Register Custom Objects ---
-# This needs to happen BEFORE loading the model
 custom_objects = {'focal_loss': focal_loss}
 tf.keras.utils.get_custom_objects().update(custom_objects)
 print("Custom objects registered.")
 
-# --- Load Keras Model ---
 print(f"Attempting to load Keras model from: {keras_model_path}")
 
 if not os.path.exists(keras_model_path):
@@ -73,8 +55,7 @@ try:
     model = tf.keras.models.load_model(
         keras_model_path,
         custom_objects=custom_objects,
-        compile=False # Often safer to compile=False for inference/conversion
-                      # unless you need the optimizer state etc.
+        compile=False 
     )
     model.summary() # Print model summary to verify architecture
     print("Keras model loaded successfully.")
@@ -90,8 +71,6 @@ except Exception as e:
     print("4. Make sure the .keras file is not corrupted.")
     exit() # Stop the script if loading fails
 
-# --- Define Input Signature for ONNX ---
-# Shape should be (batch_size, sequence_length, num_features) -> (None, 128, 44)
 try:
     input_signature = [tf.TensorSpec(model.input_shape, tf.float32, name="input")]
     print(f"Input signature for ONNX conversion: {input_signature}")
